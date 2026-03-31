@@ -11,12 +11,10 @@ WORKDIR="$HOME/argox"
 
 mkdir -p "$WORKDIR" && cd "$WORKDIR"
 
-# --- 静默安装 ---
 apt-get update -y >/dev/null 2>&1
 apt-get install -y unzip curl wget >/dev/null 2>&1
 arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 
-# 下载 Xray
 v_ver=$(curl -Ls -o /dev/null -w %{url_effective} https://github.com/XTLS/Xray-core/releases/latest | awk -F '/' '{print $NF}')
 curl -L -s -o xray.zip "https://github.com/XTLS/Xray-core/releases/download/${v_ver}/Xray-linux-64.zip" >/dev/null 2>&1
 unzip -qo xray.zip xray && chmod +x xray && rm -f xray.zip
@@ -33,11 +31,9 @@ cat <<EOF > config.json
 }
 EOF
 
-# 下载 Cloudflared 并启动
 curl -L -s -o cloudflared "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$arch" >/dev/null 2>&1
 chmod +x cloudflared
 
-# --- 写入 Systemd 守护 ---
 cat <<EOF > /etc/systemd/system/xray-argo.service
 [Unit]
 Description=Xray Service
