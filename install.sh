@@ -60,4 +60,5 @@ systemctl daemon-reload >/dev/null 2>&1
 systemctl enable xray-argo cf-tunnel >/dev/null 2>&1
 systemctl start xray-argo cf-tunnel >/dev/null 2>&1
 
-"vless://${UUID}@${ARGO_DOMAIN}:443?encryption=none&security=tls&sni=${ARGO_DOMAIN}&type=ws&host=${ARGO_DOMAIN}&path=${WSPATH}#Linode_Argo" > "$WORKDIR/argx.txt"
+LINK="vless://${1}@${4}:443?encryption=none&security=tls&sni=${4}&type=ws&host=${4}&path=${5}#Linode_Argo"
+echo "$LINK" > "$WORKDIR/argx.txt"
