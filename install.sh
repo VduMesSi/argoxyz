@@ -7,7 +7,7 @@ ARGO_TOKEN="$2"
 PORT="$3"
 ARGO_DOMAIN="$4"
 WSPATH="$5"
-WORKDIR="$HOME/argxyz"
+WORKDIR="$HOME/argox"
 
 mkdir -p "$WORKDIR" && cd "$WORKDIR"
 
