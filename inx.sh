@@ -13,9 +13,9 @@ SHORT_ID_COUNT=5
 
 echo "UUID: $UUID"
 
-# ===== install deps =====
+# ===== install dependencies =====
 apt update -y
-apt install -y curl wget unzip openssl jq
+apt install -y curl wget unzip openssl
 
 # ===== install sing-box =====
 VERSION=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep tag_name | cut -d '"' -f4)
@@ -27,9 +27,10 @@ cp sing-box-*/sing-box /usr/local/bin/
 chmod +x /usr/local/bin/sing-box
 
 # ===== generate reality keypair =====
-KEY_JSON=$(sing-box generate reality-keypair --json)
-PRIVATE_KEY=$(echo $KEY_JSON | jq -r .private_key)
-PUBLIC_KEY=$(echo $KEY_JSON | jq -r .public_key)
+KEY_OUTPUT=$(sing-box generate reality-keypair)
+
+PRIVATE_KEY=$(echo "$KEY_OUTPUT" | sed -n 's/.*PrivateKey: *//p')
+PUBLIC_KEY=$(echo "$KEY_OUTPUT" | sed -n 's/.*PublicKey: *//p')
 
 echo "Public Key: $PUBLIC_KEY"
 
@@ -63,6 +64,7 @@ cat > /etc/sing-box/config.json <<EOF
       "tag": "vless-reality",
       "listen": "::",
       "listen_port": $PORT,
+      "sniff": true,
       "users": [
         {
           "uuid": "$UUID",
@@ -71,7 +73,6 @@ cat > /etc/sing-box/config.json <<EOF
       ],
       "tls": {
         "enabled": true,
-        "server_name": "$SNI",
         "reality": {
           "enabled": true,
           "handshake": {
@@ -79,7 +80,8 @@ cat > /etc/sing-box/config.json <<EOF
             "server_port": 443
           },
           "private_key": "$PRIVATE_KEY",
-          "short_id": $SHORT_IDS_JSON
+          "short_id": $SHORT_IDS_JSON,
+          "max_time_difference": "1m"
         }
       }
     }
