@@ -13,7 +13,7 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-echo -e "${GREEN}Starting Installation: Sing-box (VLESS-XHTTP-REALITY) - 1.11.0+ Compatible${NC}"
+echo -e "${GREEN}Starting Installation: Sing-box (VLESS-XHTTP-REALITY) - v1.11.0+ Standard${NC}"
 
 # 1. Install Dependencies
 echo -e "${YELLOW}Installing dependencies...${NC}"
@@ -47,7 +47,7 @@ PUB_KEY=$(echo "$KEYS" | grep "Public key" | awk '{print $3}')
 SHORT_ID=$(openssl rand -hex 8)
 RANDOM_PATH="/$(openssl rand -hex 6)"
 
-# 4. Create Sing-box Configuration (1.11.0+ Migration Format)
+# 4. Create Sing-box Configuration (Rule-Action Migration Style)
 mkdir -p /etc/sing-box
 cat <<EOF > /etc/sing-box/config.json
 {
@@ -137,9 +137,14 @@ systemctl daemon-reload
 systemctl enable sing-box
 systemctl restart sing-box
 
-# 7. Generate vless:// Link
+# 7. Generate v2rayN Compatible vless:// Link
 IP=$(curl -s ifconfig.me)
-VLESS_LINK="vless://$UUID@$IP:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=$PUB_KEY&sid=$SHORT_ID&type=http&host=www.microsoft.com&path=$(echo $RANDOM_PATH | sed 's/\//%2F/g')&method=POST#VLESS_XHTTP"
+# URL encode the slash in the path
+ENCODED_PATH=$(echo $RANDOM_PATH | sed 's/\//%2F/g')
+REMARK="VLESS_XHTTP_REALITY"
+
+# Standard URL format: pbk (public key), sid (short id), type (transport), sni, fp (fingerprint)
+VLESS_LINK="vless://$UUID@$IP:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=$PUB_KEY&sid=$SHORT_ID&type=http&host=www.microsoft.com&path=$ENCODED_PATH#$REMARK"
 
 # Output Results
 clear
@@ -152,7 +157,8 @@ echo -e "Path           : ${CYAN}$RANDOM_PATH${NC}"
 echo -e "Reality PubKey : ${CYAN}$PUB_KEY${NC}"
 echo -e "Short ID       : ${CYAN}$SHORT_ID${NC}"
 echo -e "${YELLOW}------------------------------------------------------------${NC}"
-echo -e "${GREEN}v2rayN / Shadowrocket / Sing-box Link:${NC}"
+echo -e "${GREEN}Copy and import the link below to v2rayN / Shadowrocket:${NC}"
 echo -e "${CYAN}$VLESS_LINK${NC}"
 echo -e "${YELLOW}------------------------------------------------------------${NC}"
-echo -e "Status: $(systemctl is-active sing-box)"
+echo -e "Service Status : $(systemctl is-active sing-box)"
+echo -e "Verify Config  : /usr/local/bin/sing-box check -c /etc/sing-box/config.json"
