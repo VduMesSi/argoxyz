@@ -116,7 +116,7 @@ systemctl enable sing-box
 systemctl restart sing-box
 
 # ===== get public ip =====
-IP=$(curl -s ifconfig.me)
+IP=$(curl -4 -s https://api.ipify.org)
 
 # ===== generate v2rayN link =====
 VLESS_LINK="vless://$UUID@$IP:$PORT?encryption=none&security=reality&type=tcp&sni=$SNI&fp=chrome&pbk=$PUBLIC_KEY&sid=$RANDOM_SID&flow=xtls-rprx-vision#sb-reality"
