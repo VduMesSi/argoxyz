@@ -13,7 +13,7 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-echo -e "${GREEN}Starting Installation: Sing-box (VLESS-XHTTP-REALITY) - v1.12.0+ Standard${NC}"
+echo -e "${GREEN}Starting Installation: Sing-box (VLESS-XHTTP-REALITY) - v1.12.0+ Compliant${NC}"
 
 # 1. Install Dependencies
 echo -e "${YELLOW}Installing dependencies...${NC}"
@@ -47,7 +47,7 @@ PUB_KEY=$(echo "$KEYS" | grep "Public key" | awk '{print $3}')
 SHORT_ID=$(openssl rand -hex 8)
 RANDOM_PATH="/$(openssl rand -hex 6)"
 
-# 4. Create Sing-box Configuration (Migrated to 1.12.0 DNS and 1.11.0 Rule-Actions)
+# 4. Create Sing-box Configuration (Fixed for 1.12.0+ DNS & 1.11.0+ Rule-Actions)
 mkdir -p /etc/sing-box
 cat <<EOF > /etc/sing-box/config.json
 {
@@ -144,11 +144,13 @@ systemctl daemon-reload
 systemctl enable sing-box
 systemctl restart sing-box
 
-# 7. Generate v2rayN Link
+# 7. Generate v2rayN Compatible vless:// Link
 IP=$(curl -s ifconfig.me)
 ENCODED_PATH=$(echo $RANDOM_PATH | sed 's/\//%2F/g')
 REMARK="VLESS_XHTTP_REALITY"
-VLESS_LINK="vless://$UUID@$IP:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=$PUB_KEY&sid=$SHORT_ID&type=http&host=www.microsoft.com&path=$ENCODED_PATH#$REMARK"
+
+# Standard URL format optimized for sing-box core in v2rayN
+VLESS_LINK="vless://$UUID@$IP:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=$PUB_KEY&sid=$SHORT_ID&type=http&headerType=none&host=www.microsoft.com&path=$ENCODED_PATH#$REMARK"
 
 # Output Results
 clear
@@ -161,7 +163,8 @@ echo -e "Path           : ${CYAN}$RANDOM_PATH${NC}"
 echo -e "Reality PubKey : ${CYAN}$PUB_KEY${NC}"
 echo -e "Short ID       : ${CYAN}$SHORT_ID${NC}"
 echo -e "${YELLOW}------------------------------------------------------------${NC}"
-echo -e "${GREEN}VLESS Link for v2rayN / Sing-box Core:${NC}"
+echo -e "${GREEN}v2rayN / Shadowrocket Import Link:${NC}"
 echo -e "${CYAN}$VLESS_LINK${NC}"
 echo -e "${YELLOW}------------------------------------------------------------${NC}"
 echo -e "Service Status : $(systemctl is-active sing-box)"
+echo -e "Config Check   : /usr/local/bin/sing-box check -c /etc/sing-box/config.json"
