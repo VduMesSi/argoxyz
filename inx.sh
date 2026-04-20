@@ -3,7 +3,7 @@
 set -e
 
 # ===== basic params =====
-PORT=8443
+PORT=443
 UUID=$(cat /proc/sys/kernel/random/uuid)
 
 SNI="www.cloudflare.com"
