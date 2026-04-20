@@ -29,8 +29,8 @@ chmod +x /usr/local/bin/sing-box
 # ===== generate reality keypair =====
 KEY_OUTPUT=$(sing-box generate reality-keypair)
 
-PRIVATE_KEY=$(sing-box generate reality-keypair | grep PrivateKey | awk '{print $2}')
-PUBLIC_KEY=$(sing-box generate reality-keypair | grep PublicKey | awk '{print $2}')
+PRIVATE_KEY=$(echo "$KEY_OUTPUT" | grep -oP 'PrivateKey:\s*\K\S+')
+PUBLIC_KEY=$(echo "$KEY_OUTPUT" | grep -oP 'PublicKey:\s*\K\S+')
 
 echo "Public Key: $PUBLIC_KEY"
 
