@@ -47,7 +47,7 @@ PUB_KEY=$(echo "$KEYS" | grep "Public key" | awk '{print $3}')
 SHORT_ID=$(openssl rand -hex 8)
 RANDOM_PATH="/$(openssl rand -hex 6)"
 
-# 4. Create Sing-box Configuration (Rule-Action Migration Style)
+# 4. Create Sing-box Configuration (Migrated to Rule-Action Logic)
 mkdir -p /etc/sing-box
 cat <<EOF > /etc/sing-box/config.json
 {
@@ -61,8 +61,6 @@ cat <<EOF > /etc/sing-box/config.json
       "tag": "vless-in",
       "listen": "::",
       "listen_port": 443,
-      "sniff": true,
-      "sniff_override_destination": true,
       "users": [
         {
           "uuid": "$UUID"
@@ -139,11 +137,10 @@ systemctl restart sing-box
 
 # 7. Generate v2rayN Compatible vless:// Link
 IP=$(curl -s ifconfig.me)
-# URL encode the slash in the path
 ENCODED_PATH=$(echo $RANDOM_PATH | sed 's/\//%2F/g')
 REMARK="VLESS_XHTTP_REALITY"
 
-# Standard URL format: pbk (public key), sid (short id), type (transport), sni, fp (fingerprint)
+# Standard URL format for Reality + XHTTP
 VLESS_LINK="vless://$UUID@$IP:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=$PUB_KEY&sid=$SHORT_ID&type=http&host=www.microsoft.com&path=$ENCODED_PATH#$REMARK"
 
 # Output Results
@@ -161,4 +158,4 @@ echo -e "${GREEN}Copy and import the link below to v2rayN / Shadowrocket:${NC}"
 echo -e "${CYAN}$VLESS_LINK${NC}"
 echo -e "${YELLOW}------------------------------------------------------------${NC}"
 echo -e "Service Status : $(systemctl is-active sing-box)"
-echo -e "Verify Config  : /usr/local/bin/sing-box check -c /etc/sing-box/config.json"
+echo -e "Check Errors   : /usr/local/bin/sing-box check -c /etc/sing-box/config.json"
