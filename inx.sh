@@ -61,31 +61,37 @@ cat > /etc/sing-box/config.json <<EOF
   "inbounds": [
     {
       "type": "vless",
-      "tag": "vless-reality",
+      "tag": "vless-in",
       "listen": "::",
-      "listen_port": $PORT,
-      "sniff": true,
+      "listen_port": 443,
+
       "users": [
         {
-          "uuid": "$UUID",
+          "uuid": "YOUR_UUID",
           "flow": "xtls-rprx-vision"
         }
       ],
+
       "tls": {
         "enabled": true,
+        "server_name": "www.cloudflare.com",
+
         "reality": {
           "enabled": true,
           "handshake": {
-            "server": "$DEST",
+            "server": "www.cloudflare.com",
             "server_port": 443
           },
-          "private_key": "$PRIVATE_KEY",
-          "short_id": $SHORT_IDS_JSON,
-          "max_time_difference": "1m"
+          "private_key": "YOUR_PRIVATE_KEY",
+          "short_id": [
+            "abcd1234",
+            "efgh5678"
+          ]
         }
       }
     }
   ],
+
   "outbounds": [
     {
       "type": "direct"
