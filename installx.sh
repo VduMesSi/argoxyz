@@ -1,35 +1,35 @@
 #!/bin/bash
 
-# Color definitions
+# 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# Check Root Privileges
+# 检查 root 权限
 if [[ $EUID -ne 0 ]]; then
-   echo -e "${RED}Error: This script must be run as root!${NC}"
+   echo -e "${RED}错误: 请使用 root 权限运行此脚本！${NC}"
    exit 1
 fi
 
-echo -e "${GREEN}Starting Installation: Sing-box (VLESS-XHTTP-REALITY) - v1.12.0+ Compliant${NC}"
+echo -e "${GREEN}正在开始安装: Sing-box (VLESS-XHTTP-REALITY) - 适配 v1.12.0+ 最新标准${NC}"
 
-# 1. Install Dependencies
-echo -e "${YELLOW}Installing dependencies...${NC}"
+# 1. 安装基础依赖
+echo -e "${YELLOW}安装依赖中...${NC}"
 apt update && apt install -y curl tar wget jq openssl
 
-# 2. Determine Architecture and Download Sing-box
+# 2. 自动检测架构并下载最新版 Sing-box
 ARCH=$(uname -m)
 case $ARCH in
     x86_64) BIN_ARCH="linux-amd64" ;;
     aarch64) BIN_ARCH="linux-arm64" ;;
-    *) echo -e "${RED}Error: Unsupported architecture: $ARCH${NC}"; exit 1 ;;
+    *) echo -e "${RED}错误: 不支持的架构: $ARCH${NC}"; exit 1 ;;
 esac
 
 TAG=$(curl -s "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | jq -r .tag_name)
 VERSION=${TAG#v}
-echo -e "${YELLOW}Downloading Sing-box ${TAG} for ${BIN_ARCH}...${NC}"
+echo -e "${YELLOW}下载 Sing-box ${TAG} (${BIN_ARCH})...${NC}"
 
 wget "https://github.com/SagerNet/sing-box/releases/download/${TAG}/sing-box-${VERSION}-${BIN_ARCH}.tar.gz" -O sing-box.tar.gz
 
@@ -38,8 +38,7 @@ cp "sing-box-${VERSION}-${BIN_ARCH}/sing-box" /usr/local/bin/
 chmod +x /usr/local/bin/sing-box
 rm -rf sing-box.tar.gz "sing-box-${VERSION}-${BIN_ARCH}"
 
-# 3. Generate Random Credentials
-echo -e "${YELLOW}Generating unique security credentials...${NC}"
+# 3. 生成随机安全凭证
 UUID=$(sing-box generate uuid)
 KEYS=$(sing-box generate reality-keypair)
 PRIV_KEY=$(echo "$KEYS" | grep "Private key" | awk '{print $3}')
@@ -47,7 +46,7 @@ PUB_KEY=$(echo "$KEYS" | grep "Public key" | awk '{print $3}')
 SHORT_ID=$(openssl rand -hex 8)
 RANDOM_PATH="/$(openssl rand -hex 6)"
 
-# 4. Create Sing-box Configuration (Fixed for 1.12.0+ DNS & 1.11.0+ Rule-Actions)
+# 4. 创建 config.json (核心修复：DNS 对象化 + 路由 Action 化)
 mkdir -p /etc/sing-box
 cat <<EOF > /etc/sing-box/config.json
 {
@@ -58,11 +57,11 @@ cat <<EOF > /etc/sing-box/config.json
   "dns": {
     "servers": [
       {
-        "tag": "google",
+        "tag": "google-dns",
         "address": "tls://8.8.8.8"
       },
       {
-        "tag": "local",
+        "tag": "local-dns",
         "address": "https://1.1.1.1/dns-query",
         "detour": "direct"
       }
@@ -122,8 +121,7 @@ cat <<EOF > /etc/sing-box/config.json
 }
 EOF
 
-# 5. Setup Systemd Service
-echo -e "${YELLOW}Configuring systemd service...${NC}"
+# 5. 配置 Systemd 服务
 cat <<EOF > /etc/systemd/system/sing-box.service
 [Unit]
 Description=Sing-box Service
@@ -139,32 +137,30 @@ LimitNOFILE=infinity
 WantedBy=multi-user.target
 EOF
 
-# 6. Enable and Start Service
+# 6. 重载并启动
 systemctl daemon-reload
 systemctl enable sing-box
 systemctl restart sing-box
 
-# 7. Generate v2rayN Compatible vless:// Link
+# 7. 生成 v2rayN 兼容链接
 IP=$(curl -s ifconfig.me)
 ENCODED_PATH=$(echo $RANDOM_PATH | sed 's/\//%2F/g')
 REMARK="VLESS_XHTTP_REALITY"
 
-# Standard URL format optimized for sing-box core in v2rayN
+# 增加 headerType=none 和 fp 确保导入成功率
 VLESS_LINK="vless://$UUID@$IP:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=$PUB_KEY&sid=$SHORT_ID&type=http&headerType=none&host=www.microsoft.com&path=$ENCODED_PATH#$REMARK"
 
-# Output Results
+# 输出结果
 clear
-echo -e "${GREEN}Deployment Successful!${NC}"
+echo -e "${GREEN}部署成功！${NC}"
 echo -e "${YELLOW}------------------------------------------------------------${NC}"
-echo -e "Server IP      : ${CYAN}$IP${NC}"
-echo -e "Port           : ${CYAN}443${NC}"
 echo -e "UUID           : ${CYAN}$UUID${NC}"
-echo -e "Path           : ${CYAN}$RANDOM_PATH${NC}"
 echo -e "Reality PubKey : ${CYAN}$PUB_KEY${NC}"
 echo -e "Short ID       : ${CYAN}$SHORT_ID${NC}"
+echo -e "Path           : ${CYAN}$RANDOM_PATH${NC}"
 echo -e "${YELLOW}------------------------------------------------------------${NC}"
-echo -e "${GREEN}v2rayN / Shadowrocket Import Link:${NC}"
+echo -e "${GREEN}v2rayN 导入链接 (请整行复制):${NC}"
 echo -e "${CYAN}$VLESS_LINK${NC}"
 echo -e "${YELLOW}------------------------------------------------------------${NC}"
-echo -e "Service Status : $(systemctl is-active sing-box)"
-echo -e "Config Check   : /usr/local/bin/sing-box check -c /etc/sing-box/config.json"
+echo -e "服务状态: $(systemctl is-active sing-box)"
+echo -e "配置校验: /usr/local/bin/sing-box check -c /etc/sing-box/config.json"
