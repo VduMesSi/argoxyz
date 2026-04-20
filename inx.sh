@@ -1,46 +1,70 @@
 #!/usr/bin/env bash
-
 set -e
 
 PORT=443
 UUID=$(cat /proc/sys/kernel/random/uuid)
-
-SNI="www.cloudflare.com"
+SNI="www.apple.com"
 DEST="$SNI"
 
 echo "[INFO] UUID: $UUID"
 
-# ===== install deps =====
+# ======================
+# install dependencies
+# ======================
 apt update -y
-apt install -y curl wget unzip openssl
+apt install -y curl wget unzip openssl jq
 
-# ===== install sing-box =====
+# ======================
+# install sing-box
+# ======================
 VERSION=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep tag_name | cut -d '"' -f4)
 
-wget -O sing-box.tar.gz \
+wget -O sb.tar.gz \
 https://github.com/SagerNet/sing-box/releases/download/${VERSION}/sing-box-${VERSION#v}-linux-amd64.tar.gz
 
-tar -xzf sing-box.tar.gz
+tar -xzf sb.tar.gz
 cp sing-box-*/sing-box /usr/local/bin/
 chmod +x /usr/local/bin/sing-box
 
-# ===== reality keys =====
+# ======================
+# generate keypair (STRICT)
+# ======================
 KEY_OUTPUT=$(sing-box generate reality-keypair)
 
 PRIVATE_KEY=$(echo "$KEY_OUTPUT" | awk -F': ' '/PrivateKey/ {print $2}' | tr -d '\r\n ')
 PUBLIC_KEY=$(echo "$KEY_OUTPUT" | awk -F': ' '/PublicKey/ {print $2}' | tr -d '\r\n ')
 
-# ===== SINGLE short_id (IMPORTANT) =====
+# ===== sanity check =====
+if [[ -z "$PRIVATE_KEY" || -z "$PUBLIC_KEY" ]]; then
+  echo "[ERROR] key generation failed"
+  exit 1
+fi
+
+echo "[INFO] key OK"
+
+# ======================
+# generate SINGLE short_id (HEX ONLY)
+# ======================
 SHORT_ID=$(openssl rand -hex 8)
 
-echo "[INFO] short_id: $SHORT_ID"
+# validate hex (extra safety)
+if ! [[ "$SHORT_ID" =~ ^[0-9a-f]+$ ]]; then
+  echo "[ERROR] invalid short_id"
+  exit 1
+fi
 
-# ===== IPv4 =====
+echo "[INFO] short_id=$SHORT_ID"
+
+# ======================
+# IPv4 only
+# ======================
 IP=$(curl -4 -s https://api.ipify.org)
 
-echo "[INFO] IPv4: $IP"
+echo "[INFO] IPv4=$IP"
 
-# ===== config =====
+# ======================
+# write config
+# ======================
 mkdir -p /etc/sing-box
 
 cat > /etc/sing-box/config.json <<EOF
@@ -54,12 +78,14 @@ cat > /etc/sing-box/config.json <<EOF
       "tag": "vless-reality",
       "listen": "0.0.0.0",
       "listen_port": $PORT,
+
       "users": [
         {
           "uuid": "$UUID",
           "flow": "xtls-rprx-vision"
         }
       ],
+
       "tls": {
         "enabled": true,
         "reality": {
@@ -82,7 +108,14 @@ cat > /etc/sing-box/config.json <<EOF
 }
 EOF
 
-# ===== systemd =====
+# ======================
+# validate json
+# ======================
+jq empty /etc/sing-box/config.json
+
+# ======================
+# systemd service
+# ======================
 cat > /etc/systemd/system/sing-box.service <<EOF
 [Unit]
 Description=sing-box
@@ -101,14 +134,16 @@ systemctl daemon-reload
 systemctl enable sing-box
 systemctl restart sing-box
 
-# ===== link =====
+# ======================
+# final link (STRICT MATCH)
+# ======================
 VLESS_LINK="vless://${UUID}@${IP}:${PORT}?encryption=none&security=reality&type=tcp&flow=xtls-rprx-vision&sni=${SNI}&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}#sing-box"
 
 echo ""
-echo "========================"
-echo "INSTALL DONE"
-echo "========================"
+echo "============================"
+echo " INSTALL SUCCESS"
+echo "============================"
 echo ""
 echo "$VLESS_LINK"
 echo ""
-echo "========================"
+echo "============================"
