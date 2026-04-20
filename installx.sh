@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -13,7 +12,7 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
-echo -e "${GREEN}Starting Installation: Sing-box (VLESS-XHTTP-REALITY) - v1.11.0+ Standard${NC}"
+echo -e "${GREEN}Starting Installation: Sing-box (VLESS + REALITY TCP) - Latest Version${NC}"
 
 # 1. Install Dependencies
 echo -e "${YELLOW}Installing dependencies...${NC}"
@@ -30,7 +29,6 @@ esac
 TAG=$(curl -s "https://api.github.com/repos/SagerNet/sing-box/releases/latest" | jq -r .tag_name)
 VERSION=${TAG#v}
 echo -e "${YELLOW}Downloading Sing-box ${TAG} for ${BIN_ARCH}...${NC}"
-
 wget "https://github.com/SagerNet/sing-box/releases/download/${TAG}/sing-box-${VERSION}-${BIN_ARCH}.tar.gz" -O sing-box.tar.gz
 
 tar -zxvf sing-box.tar.gz
@@ -42,12 +40,17 @@ rm -rf sing-box.tar.gz "sing-box-${VERSION}-${BIN_ARCH}"
 echo -e "${YELLOW}Generating unique security credentials...${NC}"
 UUID=$(sing-box generate uuid)
 KEYS=$(sing-box generate reality-keypair)
-PRIV_KEY=$(echo "$KEYS" | grep "Private key" | awk '{print $3}')
-PUB_KEY=$(echo "$KEYS" | grep "Public key" | awk '{print $3}')
+PRIV_KEY=$(echo "$KEYS" | grep -oP 'PrivateKey:\s*\K\S+')
+PUB_KEY=$(echo "$KEYS" | grep -oP 'PublicKey:\s*\K\S+')
 SHORT_ID=$(openssl rand -hex 8)
-RANDOM_PATH="/$(openssl rand -hex 6)"
+RANDOM_PATH="/$(openssl rand -hex 6)"   # 保留路径变量（虽然纯TCP不用，但留作记录）
 
-# 4. Create Sing-box Configuration (Migrated to Rule-Action Logic)
+if [[ -z "$PRIV_KEY" || -z "$PUB_KEY" ]]; then
+    echo -e "${RED}Error: Failed to generate Reality keypair${NC}"
+    exit 1
+fi
+
+# 4. Create Sing-box Configuration (VLESS + TCP + REALITY)
 mkdir -p /etc/sing-box
 cat <<EOF > /etc/sing-box/config.json
 {
@@ -55,12 +58,23 @@ cat <<EOF > /etc/sing-box/config.json
     "level": "info",
     "timestamp": true
   },
+  "dns": {
+    "servers": [
+      {
+        "tag": "dns-remote",
+        "address": "tls://8.8.8.8",
+        "detour": "direct"
+      }
+    ],
+    "strategy": "ipv4_only"
+  },
   "inbounds": [
     {
       "type": "vless",
       "tag": "vless-in",
       "listen": "::",
       "listen_port": 443,
+      "sniff": true,
       "users": [
         {
           "uuid": "$UUID"
@@ -78,12 +92,6 @@ cat <<EOF > /etc/sing-box/config.json
           "private_key": "$PRIV_KEY",
           "short_id": ["$SHORT_ID"]
         }
-      },
-      "transport": {
-        "type": "http",
-        "host": ["www.microsoft.com"],
-        "path": "$RANDOM_PATH",
-        "method": "POST"
       }
     }
   ],
@@ -100,13 +108,11 @@ cat <<EOF > /etc/sing-box/config.json
   "route": {
     "rules": [
       {
-        "inbound": "vless-in",
-        "action": "hijack-dns"
+        "action": "sniff"
       },
       {
-        "action": "sniff",
-        "sniffer": ["http", "tls", "quic"],
-        "timeout": "300ms"
+        "protocol": "dns",
+        "action": "hijack-dns"
       }
     ]
   }
@@ -117,7 +123,7 @@ EOF
 echo -e "${YELLOW}Configuring systemd service...${NC}"
 cat <<EOF > /etc/systemd/system/sing-box.service
 [Unit]
-Description=Sing-box Service
+Description=Sing-box Service (VLESS + REALITY)
 After=network.target nss-lookup.target
 
 [Service]
@@ -125,6 +131,8 @@ ExecStart=/usr/local/bin/sing-box run -c /etc/sing-box/config.json
 Restart=on-failure
 RestartSec=10
 LimitNOFILE=infinity
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target
@@ -135,27 +143,47 @@ systemctl daemon-reload
 systemctl enable sing-box
 systemctl restart sing-box
 
-# 7. Generate v2rayN Compatible vless:// Link
-IP=$(curl -s ifconfig.me)
-ENCODED_PATH=$(echo $RANDOM_PATH | sed 's/\//%2F/g')
-REMARK="VLESS_XHTTP_REALITY"
+# 7. Check Configuration and Service
+echo -e "${YELLOW}Checking configuration...${NC}"
+if /usr/local/bin/sing-box check -c /etc/sing-box/config.json; then
+    echo -e "${GREEN}Configuration check passed!${NC}"
+else
+    echo -e "${RED}Configuration check failed! Please check the config file.${NC}"
+    exit 1
+fi
 
-# Standard URL format for Reality + XHTTP
-VLESS_LINK="vless://$UUID@$IP:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=$PUB_KEY&sid=$SHORT_ID&type=http&host=www.microsoft.com&path=$ENCODED_PATH#$REMARK"
+# 8. Generate v2rayN / Nekobox / v2rayNG Compatible Link
+IP=$(curl -s ifconfig.me)
+REMARK="VLESS_REALITY_TCP"
+
+VLESS_LINK="vless://$UUID@$IP:443?encryption=none&security=reality&sni=www.microsoft.com&fp=chrome&pbk=$PUB_KEY&sid=$SHORT_ID&type=tcp#$REMARK"
 
 # Output Results
 clear
 echo -e "${GREEN}Deployment Successful!${NC}"
 echo -e "${YELLOW}------------------------------------------------------------${NC}"
-echo -e "Server IP      : ${CYAN}$IP${NC}"
-echo -e "Port           : ${CYAN}443${NC}"
-echo -e "UUID           : ${CYAN}$UUID${NC}"
-echo -e "Path           : ${CYAN}$RANDOM_PATH${NC}"
-echo -e "Reality PubKey : ${CYAN}$PUB_KEY${NC}"
-echo -e "Short ID       : ${CYAN}$SHORT_ID${NC}"
+echo -e "Server IP          : ${CYAN}$IP${NC}"
+echo -e "Port               : ${CYAN}443${NC}"
+echo -e "UUID               : ${CYAN}$UUID${NC}"
+echo -e "Reality PrivateKey : ${CYAN}$PRIV_KEY${NC}"
+echo -e "Reality PublicKey  : ${CYAN}$PUB_KEY${NC}"
+echo -e "Short ID           : ${CYAN}$SHORT_ID${NC}"
 echo -e "${YELLOW}------------------------------------------------------------${NC}"
-echo -e "${GREEN}Copy and import the link below to v2rayN / Shadowrocket:${NC}"
+echo -e "${GREEN}Copy and import the link below into v2rayN / Nekobox / Shadowrocket:${NC}"
 echo -e "${CYAN}$VLESS_LINK${NC}"
 echo -e "${YELLOW}------------------------------------------------------------${NC}"
-echo -e "Service Status : $(systemctl is-active sing-box)"
-echo -e "Check Errors   : /usr/local/bin/sing-box check -c /etc/sing-box/config.json"
+echo -e "Service Status     : $(systemctl is-active sing-box)"
+echo -e ""
+echo -e "Useful commands:"
+echo -e "  Check logs     : journalctl -u sing-box -f"
+echo -e "  Check config   : /usr/local/bin/sing-box check -c /etc/sing-box/config.json"
+echo -e "  Restart        : systemctl restart sing-box"
+echo -e "${YELLOW}------------------------------------------------------------${NC}"
+
+# Final check
+sleep 2
+if systemctl is-active --quiet sing-box; then
+    echo -e "${GREEN}Sing-box is running successfully!${NC}"
+else
+    echo -e "${RED}Warning: Service may not be running properly. Check logs with: journalctl -u sing-box -xe${NC}"
+fi
