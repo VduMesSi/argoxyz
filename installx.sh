@@ -43,14 +43,13 @@ KEYS=$(sing-box generate reality-keypair)
 PRIV_KEY=$(echo "$KEYS" | grep -oP 'PrivateKey:\s*\K\S+')
 PUB_KEY=$(echo "$KEYS" | grep -oP 'PublicKey:\s*\K\S+')
 SHORT_ID=$(openssl rand -hex 8)
-RANDOM_PATH="/$(openssl rand -hex 6)"   # 保留路径变量（虽然纯TCP不用，但留作记录）
 
 if [[ -z "$PRIV_KEY" || -z "$PUB_KEY" ]]; then
     echo -e "${RED}Error: Failed to generate Reality keypair${NC}"
     exit 1
 fi
 
-# 4. Create Sing-box Configuration (VLESS + TCP + REALITY)
+# 4. Create Sing-box Configuration (VLESS + TCP + REALITY) - 已修复 DNS 新格式
 mkdir -p /etc/sing-box
 cat <<EOF > /etc/sing-box/config.json
 {
@@ -62,8 +61,13 @@ cat <<EOF > /etc/sing-box/config.json
     "servers": [
       {
         "tag": "dns-remote",
-        "address": "tls://8.8.8.8",
-        "detour": "direct"
+        "type": "tls",
+        "server": "8.8.8.8"
+      },
+      {
+        "tag": "dns-cloudflare",
+        "type": "tls",
+        "server": "1.1.1.1"
       }
     ],
     "strategy": "ipv4_only"
@@ -152,7 +156,7 @@ else
     exit 1
 fi
 
-# 8. Generate v2rayN / Nekobox / v2rayNG Compatible Link
+# 8. Generate Client Link
 IP=$(curl -s ifconfig.me)
 REMARK="VLESS_REALITY_TCP"
 
@@ -165,25 +169,23 @@ echo -e "${YELLOW}------------------------------------------------------------${
 echo -e "Server IP          : ${CYAN}$IP${NC}"
 echo -e "Port               : ${CYAN}443${NC}"
 echo -e "UUID               : ${CYAN}$UUID${NC}"
-echo -e "Reality PrivateKey : ${CYAN}$PRIV_KEY${NC}"
 echo -e "Reality PublicKey  : ${CYAN}$PUB_KEY${NC}"
 echo -e "Short ID           : ${CYAN}$SHORT_ID${NC}"
 echo -e "${YELLOW}------------------------------------------------------------${NC}"
-echo -e "${GREEN}Copy and import the link below into v2rayN / Nekobox / Shadowrocket:${NC}"
+echo -e "${GREEN}v2rayN / Nekobox / Shadowrocket 导入链接：${NC}"
 echo -e "${CYAN}$VLESS_LINK${NC}"
 echo -e "${YELLOW}------------------------------------------------------------${NC}"
 echo -e "Service Status     : $(systemctl is-active sing-box)"
 echo -e ""
-echo -e "Useful commands:"
-echo -e "  Check logs     : journalctl -u sing-box -f"
-echo -e "  Check config   : /usr/local/bin/sing-box check -c /etc/sing-box/config.json"
-echo -e "  Restart        : systemctl restart sing-box"
+echo -e "常用命令："
+echo -e "  查看日志     : journalctl -u sing-box -f"
+echo -e "  检查配置     : /usr/local/bin/sing-box check -c /etc/sing-box/config.json"
+echo -e "  重启服务     : systemctl restart sing-box"
 echo -e "${YELLOW}------------------------------------------------------------${NC}"
 
-# Final check
 sleep 2
 if systemctl is-active --quiet sing-box; then
-    echo -e "${GREEN}Sing-box is running successfully!${NC}"
+    echo -e "${GREEN}Sing-box 服务已正常运行！${NC}"
 else
-    echo -e "${RED}Warning: Service may not be running properly. Check logs with: journalctl -u sing-box -xe${NC}"
+    echo -e "${RED}Warning: 服务可能未正常启动，请查看日志：journalctl -u sing-box -xe${NC}"
 fi
