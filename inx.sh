@@ -2,7 +2,6 @@
 PORT=52252
 UUID=$(cat /proc/sys/kernel/random/uuid)
 SNI="www.microsoft.com"
-DEST="$SNI"
 
 echo "[INFO] UUID: $UUID"
 
@@ -70,7 +69,7 @@ cat > /etc/sing-box/config.json <<EOF
         "reality": {
           "enabled": true,
           "handshake": {
-            "server": "$DEST",
+            "server": "$SNI",
             "server_port": 443
           },
           "private_key": "$PRIVATE_KEY",
