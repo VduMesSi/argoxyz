@@ -1,22 +1,16 @@
 #!/usr/bin/env bash
 set -e
 
-PORT=443
+PORT=5225
 UUID=$(cat /proc/sys/kernel/random/uuid)
-SNI="www.apple.com"
+SNI="www.microsoft.com"
 DEST="$SNI"
 
 echo "[INFO] UUID: $UUID"
 
-# ======================
-# install dependencies
-# ======================
 apt update -y
 apt install -y curl wget unzip openssl jq
 
-# ======================
-# install sing-box
-# ======================
 VERSION=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep tag_name | cut -d '"' -f4)
 
 wget -O sb.tar.gz \
@@ -41,32 +35,19 @@ if [[ -z "$PRIVATE_KEY" || -z "$PUBLIC_KEY" ]]; then
 fi
 
 echo "[INFO] key OK"
-
-# ======================
-# generate SINGLE short_id (HEX ONLY)
-# ======================
 SHORT_ID=$(openssl rand -hex 8)
 
-# validate hex (extra safety)
 if ! [[ "$SHORT_ID" =~ ^[0-9a-f]+$ ]]; then
   echo "[ERROR] invalid short_id"
   exit 1
 fi
 
 echo "[INFO] short_id=$SHORT_ID"
-
-# ======================
-# IPv4 only
-# ======================
 IP=$(curl -4 -s https://api.ipify.org)
 
 echo "[INFO] IPv4=$IP"
 
-# ======================
-# write config
-# ======================
 mkdir -p /etc/sing-box
-
 cat > /etc/sing-box/config.json <<EOF
 {
   "log": {
@@ -108,14 +89,8 @@ cat > /etc/sing-box/config.json <<EOF
 }
 EOF
 
-# ======================
-# validate json
-# ======================
 jq empty /etc/sing-box/config.json
 
-# ======================
-# systemd service
-# ======================
 cat > /etc/systemd/system/sing-box.service <<EOF
 [Unit]
 Description=sing-box
@@ -134,9 +109,6 @@ systemctl daemon-reload
 systemctl enable sing-box
 systemctl restart sing-box
 
-# ======================
-# final link (STRICT MATCH)
-# ======================
 VLESS_LINK="vless://${UUID}@${IP}:${PORT}?encryption=none&security=reality&type=tcp&flow=xtls-rprx-vision&sni=${SNI}&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}#sing-box"
 
 echo ""
