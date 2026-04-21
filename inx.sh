@@ -5,7 +5,7 @@ SNI="www.microsoft.com"
 
 echo "[INFO] UUID: $UUID"
 
-apt update -y
+# apt update -y
 apt install -y curl wget unzip openssl jq
 
 VERSION=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep tag_name | cut -d '"' -f4)
