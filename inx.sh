@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 PORT=52252
 UUID=$(cat /proc/sys/kernel/random/uuid)
-SNI="www.microsoft.com"
+SNI="swcdn.apple.com"
 
 echo "[INFO] UUID: $UUID"
 
