@@ -76,7 +76,7 @@ cat > /etc/sing-box/config.json <<EOF
             "server_port": 443
           },
           "private_key": "$PRIVATE_KEY",
-          "short_id": "$SHORT_ID"
+          "short_id": ["$SHORT_ID"]
         }
       }
     }
