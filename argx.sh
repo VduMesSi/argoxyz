@@ -1,9 +1,6 @@
 #!/bin/bash
 
 export LANG=en_US.UTF-8
-WORKDIR="/root/sing-box"
-rm -rf "$WORKDIR" && mkdir -p "$WORKDIR"
-cd "$WORKDIR"
 
 # apt update 
 apt install curl coreutils util-linux sed jq -y >/dev/null 2>&1
@@ -14,7 +11,6 @@ https://github.com/SagerNet/sing-box/releases/download/${VERSION}/sing-box-${VER
 tar -xzf sb.tar.gz
 cp sing-box-*/sing-box /usr/local/bin/
 chmod +x /usr/local/bin/sing-box
-
 v4=$(curl -4 -s --max-time 5 https://api.ipify.org || curl -4 -s --max-time 5 https://icanhazip.com)
 
 uuid=$(./sing-box generate uuid)
