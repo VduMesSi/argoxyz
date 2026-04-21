@@ -17,9 +17,6 @@ tar -xzf sb.tar.gz
 cp sing-box-*/sing-box /usr/local/bin/
 chmod +x /usr/local/bin/sing-box
 
-# ======================
-# generate keypair (STRICT)
-# ======================
 KEY_OUTPUT=$(sing-box generate reality-keypair)
 
 PRIVATE_KEY=$(echo "$KEY_OUTPUT" | awk -F': ' '/PrivateKey/ {print $2}' | tr -d '\r\n ')
