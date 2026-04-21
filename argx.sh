@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export LANG=en_US.UTF-8
-WORKDIR="/root/singbox"
+WORKDIR="/root/sing-box"
 rm -rf "$WORKDIR" && mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
