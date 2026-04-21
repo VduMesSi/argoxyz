@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-set -e
-
-PORT=5225
+PORT=52252
 UUID=$(cat /proc/sys/kernel/random/uuid)
 SNI="www.microsoft.com"
 DEST="$SNI"
