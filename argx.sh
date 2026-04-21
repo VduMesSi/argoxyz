@@ -16,11 +16,7 @@ curl -Lo sing-box.tar.gz "$DOWNLOAD_URL"
 tar -xzf sing-box.tar.gz --strip-components=1
 chmod +x sing-box
 
-v4=$(curl -4 -s --max-time 5 https://api.ipify.org || curl -4 -s --max-time 5 https://icanhazip.com)
-if [ -z "$v4" ]; then
-    echo "错误：无法获取公网 IPv4 地址"
-    exit 1
-fi
+v4=$(curl -4 -s https://api.ipify.org)
 
 uuid=$(./sing-box generate uuid)
 key_pair=$(./sing-box generate reality-keypair)
@@ -82,9 +78,5 @@ nohup ./sing-box run -c config.json > singbox.log 2>&1 &
 
 echo "-------------------------------------------------------"
 echo "部署完成！"
-echo "系统架构: $cpu"
-echo "主程序版本: $LATEST_TAG"
-echo "IPv4 地址: $v4"
-echo ""
 echo "vless://$uuid@$v4:$port?security=reality&sni=$sni&fp=chrome&pbk=$public_key&sid=$short_id&type=xhttp&path=%2F$uuid-xh#Linode-xHTTP-$(date +%F)"
 echo "-------------------------------------------------------"
