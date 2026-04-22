@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# set -euo pipefail
 
 # VLESS + XHTTP + REALITY one-click installer for Debian/Ubuntu (Linode friendly)
 # Usage:
