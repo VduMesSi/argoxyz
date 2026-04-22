@@ -25,9 +25,9 @@ if ! command -v xray >/dev/null 2>&1; then
 fi
 
 UUID="$(xray uuid)"
-X25519_OUT="$(xray x25519)"
-PRIVATE_KEY="$(awk '/Private key:/ {print $3}' <<<"$X25519_OUT")"
-PUBLIC_KEY="$(awk '/Public key:/ {print $3}' <<<"$X25519_OUT")"
+X25519_OUT="$(xray x25519 2>&1 || true)"
+PRIVATE_KEY="$(printf '%s\n' "$X25519_OUT" | sed -n 's/.*Private key:[[:space:]]*//p' | head -n1 | tr -d '\r')"
+PUBLIC_KEY="$(printf '%s\n' "$X25519_OUT"  | sed -n 's/.*Public key:[[:space:]]*//p'  | head -n1 | tr -d '\r')"
 SHORT_ID="$(openssl rand -hex 8)"
 
 # Detect best server address for sharing link (prefer user-defined)
