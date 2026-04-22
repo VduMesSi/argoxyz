@@ -7,10 +7,6 @@ set -euo pipefail
 # Optional env vars:
 #   PORT=443 SNI=www.cloudflare.com PATH_XHTTP=/xhttp SPIDERX=/ SERVER_ADDR=<ip-or-domain> REMARK=linode-xhttp
 
-if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
-  echo "[ERR] Please run as root" >&2
-  exit 1
-fi
 
 export DEBIAN_FRONTEND=noninteractive
 
