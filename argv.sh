@@ -127,5 +127,4 @@ fi
 
 ENCODED_PATH=$(printf '%s' "$WS_PATH" | sed 's#^/##; s#/#%2F#g')
 
-printf 'vless://%s@%s:443?encryption=none&security=tls&type=ws&host=%s&sni=%s&path=/%s#vless-ws-tls-argo\n' \
-  "$UUID" "$ARGO_DOMAIN" "$ARGO_DOMAIN" "$ARGO_DOMAIN" "$ENCODED_PATH"
+printf 'vless://%s@%s:443?encryption=none&security=tls&type=ws&host=%s&sni=%s&path=/%s#vless-ws-tls-argo\n'
