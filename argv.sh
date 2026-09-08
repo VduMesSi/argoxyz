@@ -24,19 +24,35 @@ case "$(uname -m)" in
 esac
 
 command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || exit 1
-command -v unzip >/dev/null 2>&1 || exit 1
+
+# 检查 unzip 依赖是否存在，若不存在则提示错误
+if ! command -v unzip >/dev/null 2>&1; then
+  echo "Error: unzip command is missing. Please install unzip and retry." >&2
+  exit 1
+fi
+
 mkdir -p "$BASE"
 
+# 从 XTLS/Xray-core 官方 Releases 获取二进制程序
 if [ ! -x "$BASE/xray" ]; then
   URL="https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${XRAY_ARCH}.zip"
   TMP_ZIP="$(mktemp)"
+  trap 'rm -f "$TMP_ZIP"' EXIT
+
   if command -v curl >/dev/null 2>&1; then
     curl -fsSL --retry 3 -o "$TMP_ZIP" "$URL"
   else
     wget -qO "$TMP_ZIP" "$URL"
   fi
-  unzip -o "$TMP_ZIP" xray -d "$BASE" >/dev/null 2>&1
-  rm -f "$TMP_ZIP"
+
+  # 提取 zip 包中的 xray 执行文件（忽略大小写匹配，避免名字问题）
+  unzip -o -q "$TMP_ZIP" -d "$BASE"
+  
+  # 若解压出的主程序是大写 Xray，规范化重命名为小写 xray
+  if [ -f "$BASE/Xray" ]; then
+    mv "$BASE/Xray" "$BASE/xray"
+  fi
+
   chmod +x "$BASE/xray"
 fi
 
