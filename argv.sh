@@ -8,54 +8,45 @@ WS_PATH="$2"
 PORT="$3"
 ARGO_DOMAIN="$4"
 ARGO_AUTH="$5"
-
 BASE="${HOME}/vless-argo"
 
 [ "$(id -u)" -eq 0 ] || exit 1
+[ -n "$UUID" ] && [ -n "$WS_PATH" ] && [ -n "$PORT" ] && [ -n "$ARGO_DOMAIN" ] && [ -n "$ARGO_AUTH" ] || exit 1
+
+case "$PORT" in
+  ''|*[!0-9]*) exit 1 ;;
+esac
 
 case "$(uname -m)" in
-  x86_64|amd64)
-    XRAY_ARCH="64"
-    CLOUDFLARED_ARCH="amd64"
-    ;;
-  aarch64|arm64)
-    XRAY_ARCH="arm64-v8a"
-    CLOUDFLARED_ARCH="arm64"
-    ;;
-  *)
-    exit 1
-    ;;
+  x86_64|amd64) CPU=amd64; XRAY_ARCH="64" ;;
+  aarch64|arm64) CPU=arm64; XRAY_ARCH="arm64-v8a" ;;
+  *) exit 1 ;;
 esac
 
 command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || exit 1
 command -v unzip >/dev/null 2>&1 || exit 1
-
 mkdir -p "$BASE"
 
 if [ ! -x "$BASE/xray" ]; then
   URL="https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${XRAY_ARCH}.zip"
-  TMP="$BASE/xray.zip"
-
+  TMP_ZIP="$(mktemp)"
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL --retry 3 -o "$TMP" "$URL"
+    curl -fsSL --retry 3 -o "$TMP_ZIP" "$URL"
   else
-    wget -qO "$TMP" "$URL"
+    wget -qO "$TMP_ZIP" "$URL"
   fi
-
-  unzip -p "$TMP" xray > "$BASE/xray"
-  rm -f "$TMP"
+  unzip -o "$TMP_ZIP" xray -d "$BASE" >/dev/null 2>&1
+  rm -f "$TMP_ZIP"
   chmod +x "$BASE/xray"
 fi
 
 if [ ! -x "$BASE/cloudflared" ]; then
-  URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${CLOUDFLARED_ARCH}"
-
+  URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${CPU}"
   if command -v curl >/dev/null 2>&1; then
     curl -fsSL --retry 3 -o "$BASE/cloudflared" "$URL"
   else
     wget -qO "$BASE/cloudflared" "$URL"
   fi
-
   chmod +x "$BASE/cloudflared"
 fi
 
@@ -94,10 +85,7 @@ cat > "$BASE/xray.json" <<JSON
 }
 JSON
 
-# systemd
-if command -v systemctl >/dev/null 2>&1 &&
-   [ "$(ps -p 1 -o comm= 2>/dev/null)" = "systemd" ]; then
-
+if command -v systemctl >/dev/null 2>&1 && [ "$(ps -p 1 -o comm= 2>/dev/null)" = systemd ]; then
   cat > /etc/systemd/system/vless-argo-xray.service <<UNIT
 [Unit]
 After=network.target
@@ -127,26 +115,17 @@ RestartSec=3
 WantedBy=multi-user.target
 UNIT
 
-  systemctl daemon-reload
-  systemctl enable --now vless-argo-xray.service
-  systemctl enable --now vless-argo.service
-
+  systemctl daemon-reload >/dev/null 2>&1
+  systemctl enable --now vless-argo-xray.service >/dev/null 2>&1
+  systemctl enable --now vless-argo.service >/dev/null 2>&1
 else
-
   pkill -f "${BASE}/xray run -c ${BASE}/xray.json" 2>/dev/null || true
   pkill -f "${BASE}/cloudflared tunnel" 2>/dev/null || true
-
-  nohup "$BASE/xray" run -c "$BASE/xray.json" \
-    >/dev/null 2>&1 &
-
-  nohup "$BASE/cloudflared" tunnel \
-    --no-autoupdate \
-    --edge-ip-version auto \
-    --protocol http2 \
-    run --token "$ARGO_AUTH" \
-    >/dev/null 2>&1 &
-
+  nohup "$BASE/xray" run -c "$BASE/xray.json" >/dev/null 2>&1 &
+  nohup "$BASE/cloudflared" tunnel --no-autoupdate --edge-ip-version auto --protocol http2 run --token "$ARGO_AUTH" >/dev/null 2>&1 &
 fi
 
 ENCODED_PATH=$(printf '%s' "$WS_PATH" | sed 's#^/##; s#/#%2F#g')
-printf 'vless://%s@%s:443?encryption=none&security=tls&type=ws&host=%s&sni=%s&path=/%s#vless-ws-tls-argo\n'
+
+printf 'vless://%s@%s:443?encryption=none&security=tls&type=ws&host=%s&sni=%s&path=/%s#vless-ws-tls-argo\n' \
+  "$UUID" "$ARGO_DOMAIN" "$ARGO_DOMAIN" "$ARGO_DOMAIN" "$ENCODED_PATH"
