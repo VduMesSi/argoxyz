@@ -15,10 +15,12 @@ BASE="${HOME}/vless-argo"
 
 case "$(uname -m)" in
   x86_64|amd64)
-    CPU="amd64"
+    XRAY_ARCH="64"
+    CLOUDFLARED_ARCH="amd64"
     ;;
   aarch64|arm64)
-    CPU="arm64"
+    XRAY_ARCH="arm64-v8a"
+    CLOUDFLARED_ARCH="arm64"
     ;;
   *)
     exit 1
@@ -26,11 +28,12 @@ case "$(uname -m)" in
 esac
 
 command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || exit 1
+command -v unzip >/dev/null 2>&1 || exit 1
 
 mkdir -p "$BASE"
 
 if [ ! -x "$BASE/xray" ]; then
-  URL="https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${CPU}.zip"
+  URL="https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${XRAY_ARCH}.zip"
   TMP="$BASE/xray.zip"
 
   if command -v curl >/dev/null 2>&1; then
@@ -45,7 +48,7 @@ if [ ! -x "$BASE/xray" ]; then
 fi
 
 if [ ! -x "$BASE/cloudflared" ]; then
-  URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${CPU}"
+  URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${CLOUDFLARED_ARCH}"
 
   if command -v curl >/dev/null 2>&1; then
     curl -fsSL --retry 3 -o "$BASE/cloudflared" "$URL"
@@ -91,8 +94,10 @@ cat > "$BASE/xray.json" <<JSON
 }
 JSON
 
+# systemd
 if command -v systemctl >/dev/null 2>&1 &&
    [ "$(ps -p 1 -o comm= 2>/dev/null)" = "systemd" ]; then
+
   cat > /etc/systemd/system/vless-argo-xray.service <<UNIT
 [Unit]
 After=network.target
@@ -127,6 +132,7 @@ UNIT
   systemctl enable --now vless-argo.service
 
 else
+
   pkill -f "${BASE}/xray run -c ${BASE}/xray.json" 2>/dev/null || true
   pkill -f "${BASE}/cloudflared tunnel" 2>/dev/null || true
 
@@ -139,8 +145,8 @@ else
     --protocol http2 \
     run --token "$ARGO_AUTH" \
     >/dev/null 2>&1 &
+
 fi
 
 ENCODED_PATH=$(printf '%s' "$WS_PATH" | sed 's#^/##; s#/#%2F#g')
-
 printf 'vless://%s@%s:443?encryption=none&security=tls&type=ws&host=%s&sni=%s&path=/%s#vless-ws-tls-argo\n'
